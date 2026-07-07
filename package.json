@@ -1,0 +1,19 @@
+{
+  "name": "sd-online-bot",
+  "version": "1.0.0",
+  "description": "Telegram-бот СД онлайн — диагностика отношений с партнёром + админка",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
