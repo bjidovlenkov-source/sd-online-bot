@@ -56,23 +56,17 @@ async function finishTest(ctx, testId) {
     result
   });
 
-  const resultText =
-    `${resultInfo.emoji} ${resultInfo.title}\n\n${resultInfo.text}\n\n${test.ctaText}`;
+  const parts = [resultInfo.title, resultInfo.text];
+  if (test.ctaText) parts.push(test.ctaText);
+  const resultText = parts.join('\n\n');
 
-  await ctx.editMessageText(
-    resultText,
-    Markup.inlineKeyboard([
-      [Markup.button.url(test.ctaButtonText, test.ctaUrl)],
-      [Markup.button.callback('⬅️ Выбрать другую проверку', 'back_to_menu')]
-    ])
-  ).catch(async () => {
-    await ctx.reply(
-      resultText,
-      Markup.inlineKeyboard([
-        [Markup.button.url(test.ctaButtonText, test.ctaUrl)],
-        [Markup.button.callback('⬅️ Выбрать другую проверку', 'back_to_menu')]
-      ])
-    );
+  const resultKeyboard = Markup.inlineKeyboard([
+    [Markup.button.url(test.ctaButtonText, test.ctaUrl)],
+    [Markup.button.url(test.ctaContactButtonText, test.ctaContactUrl)]
+  ]);
+
+  await ctx.editMessageText(resultText, resultKeyboard).catch(async () => {
+    await ctx.reply(resultText, resultKeyboard);
   });
 
   sessions.delete(ctx.from.id);

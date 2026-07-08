@@ -6,7 +6,13 @@ const { tests } = require('./questions');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'change_me_please';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'insecure_default_secret';
 
-const RESULT_LABELS = { green: '🟢 Зелёный', yellow: '🟡 Жёлтый', red: '🔴 Красный' };
+const RESULT_LABELS = {
+  healthy: '🟢 Здоровое партнёрство',
+  earlyConflict: '🟡 Начало конфликта',
+  activeConflict: '🟠 Активный конфликт',
+  coldWar: '🔴 Холодная война',
+  critical: '⚫ Критическая стадия'
+};
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -103,8 +109,13 @@ function createAdminRouter(bot) {
     const { result, testId } = req.query;
     const submissions = db.getSubmissions({ result: result || undefined, testId: testId || undefined });
 
-    const counts = { green: 0, yellow: 0, red: 0 };
+    const counts = {};
+    Object.keys(RESULT_LABELS).forEach(k => { counts[k] = 0; });
     db.getSubmissions().forEach(s => { counts[s.result] = (counts[s.result] || 0) + 1; });
+
+    const statCards = Object.keys(RESULT_LABELS)
+      .map(k => `<div class="stat"><b>${counts[k]}</b> ${RESULT_LABELS[k]}</div>`)
+      .join('');
 
     const testOptions = Object.values(tests)
       .map(t => `<option value="${t.id}" ${testId === t.id ? 'selected' : ''}>${escapeHtml(t.menuButtonText)}</option>`)
@@ -132,18 +143,16 @@ function createAdminRouter(bot) {
       </header>
       <div class="container">
         <div class="card">
-          <div class="stat"><b>${counts.green}</b> 🟢 зелёных</div>
-          <div class="stat"><b>${counts.yellow}</b> 🟡 жёлтых</div>
-          <div class="stat"><b>${counts.red}</b> 🔴 красных</div>
+          ${statCards}
           <div class="stat"><b>${submissions.length}</b> всего показано</div>
         </div>
 
         <form method="GET" class="filters">
           <select name="result">
-            <option value="">Все цвета</option>
-            <option value="green" ${result === 'green' ? 'selected' : ''}>🟢 Зелёный</option>
-            <option value="yellow" ${result === 'yellow' ? 'selected' : ''}>🟡 Жёлтый</option>
-            <option value="red" ${result === 'red' ? 'selected' : ''}>🔴 Красный</option>
+            <option value="">Все уровни</option>
+            ${Object.keys(RESULT_LABELS).map(k =>
+              `<option value="${k}" ${result === k ? 'selected' : ''}>${RESULT_LABELS[k]}</option>`
+            ).join('')}
           </select>
           <select name="testId">
             <option value="">Все тесты</option>
@@ -205,9 +214,9 @@ function createAdminRouter(bot) {
             <p><label>Кому отправить:</label><br/>
               <select name="result" style="width:100%; margin-top:6px;">
                 <option value="">Всем, кто проходил любой тест</option>
-                <option value="green">Только 🟢 Зелёным</option>
-                <option value="yellow">Только 🟡 Жёлтым</option>
-                <option value="red">Только 🔴 Красным</option>
+                ${Object.keys(RESULT_LABELS).map(k =>
+                  `<option value="${k}">Только ${RESULT_LABELS[k]}</option>`
+                ).join('')}
               </select>
             </p>
             <p><label>По какому тесту (необязательно):</label><br/>
