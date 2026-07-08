@@ -25,17 +25,18 @@ function questionKeyboard(testId, qIndex, options) {
   const buttons = options.map((opt, i) => [
     Markup.button.callback(opt.text, `ans:${testId}:${qIndex}:${i}`)
   ]);
-  return Markup.inlineKeyboard(buttons);
+  return { parse_mode: 'Markdown', ...Markup.inlineKeyboard(buttons) };
 }
 
 async function sendQuestion(ctx, testId, qIndex) {
   const test = tests[testId];
   const question = test.questions[qIndex];
-  const progress = `Вопрос ${qIndex + 1} из ${test.questions.length}`;
-  const text = `${progress}\n\n${question.text}`;
-  await ctx.editMessageText(text, questionKeyboard(testId, qIndex, question.options)).catch(async () => {
+  const progress = `*Вопрос ${qIndex + 1} из ${test.questions.length}*`;
+  const text = `${progress}\n\n❓ ${question.text}`;
+  const extra = questionKeyboard(testId, qIndex, question.options);
+  await ctx.editMessageText(text, extra).catch(async () => {
     // Если сообщение нельзя отредактировать (например, устарело) — отправим новое
-    await ctx.reply(text, questionKeyboard(testId, qIndex, question.options));
+    await ctx.reply(text, extra);
   });
 }
 
@@ -56,14 +57,18 @@ async function finishTest(ctx, testId) {
     result
   });
 
-  const parts = [resultInfo.title, resultInfo.text];
+  const titleLine = `${resultInfo.emoji || ''} *${resultInfo.title}*`.trim();
+  const parts = [titleLine, resultInfo.text];
   if (test.ctaText) parts.push(test.ctaText);
   const resultText = parts.join('\n\n');
 
-  const resultKeyboard = Markup.inlineKeyboard([
-    [Markup.button.url(test.ctaButtonText, test.ctaUrl)],
-    [Markup.button.url(test.ctaContactButtonText, test.ctaContactUrl)]
-  ]);
+  const resultKeyboard = {
+    parse_mode: 'Markdown',
+    ...Markup.inlineKeyboard([
+      [Markup.button.url(test.ctaButtonText, test.ctaUrl)],
+      [Markup.button.url(test.ctaContactButtonText, test.ctaContactUrl)]
+    ])
+  };
 
   await ctx.editMessageText(resultText, resultKeyboard).catch(async () => {
     await ctx.reply(resultText, resultKeyboard);
@@ -72,16 +77,20 @@ async function finishTest(ctx, testId) {
   sessions.delete(ctx.from.id);
 }
 
+function mainMenuExtra() {
+  return { parse_mode: 'Markdown', ...mainMenuKeyboard() };
+}
+
 bot.start(async (ctx) => {
   sessions.delete(ctx.from.id);
-  await ctx.reply(welcomeText, mainMenuKeyboard());
+  await ctx.reply(welcomeText, mainMenuExtra());
 });
 
 bot.action('back_to_menu', async (ctx) => {
   await ctx.answerCbQuery();
   sessions.delete(ctx.from.id);
-  await ctx.editMessageText(welcomeText, mainMenuKeyboard()).catch(async () => {
-    await ctx.reply(welcomeText, mainMenuKeyboard());
+  await ctx.editMessageText(welcomeText, mainMenuExtra()).catch(async () => {
+    await ctx.reply(welcomeText, mainMenuExtra());
   });
 });
 
@@ -94,14 +103,13 @@ bot.action(/^menu:(.+)$/, async (ctx) => {
 
   sessions.set(ctx.from.id, { testId, questionIndex: 0, points: [], answersText: [] });
 
-  await ctx.editMessageText(
-    test.intro,
-    Markup.inlineKeyboard([[Markup.button.callback('Начать ➡️', `start_test:${testId}`)]])
-  ).catch(async () => {
-    await ctx.reply(
-      test.intro,
-      Markup.inlineKeyboard([[Markup.button.callback('Начать ➡️', `start_test:${testId}`)]])
-    );
+  const introExtra = {
+    parse_mode: 'Markdown',
+    ...Markup.inlineKeyboard([[Markup.button.callback('Начать ➡️', `start_test:${testId}`)]])
+  };
+
+  await ctx.editMessageText(test.intro, introExtra).catch(async () => {
+    await ctx.reply(test.intro, introExtra);
   });
 });
 
