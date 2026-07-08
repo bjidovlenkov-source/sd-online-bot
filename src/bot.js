@@ -1,5 +1,5 @@
 const { Telegraf, Markup } = require('telegraf');
-const { tests, welcomeText, calculateResult } = require('./questions');
+const { tests, calculateResult } = require('./questions');
 const db = require('./db');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
@@ -14,12 +14,7 @@ const bot = new Telegraf(BOT_TOKEN);
 // проходится за пару минут, и не требует сохранения между перезапусками бота.
 const sessions = new Map(); // key: telegramUserId -> { testId, questionIndex, points: [], answersText: [] }
 
-function mainMenuKeyboard() {
-  const buttons = Object.values(tests).map(t => [
-    Markup.button.callback(t.menuButtonText, `menu:${t.id}`)
-  ]);
-  return Markup.inlineKeyboard(buttons);
-}
+const NUMBER_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
 
 function questionKeyboard(testId, qIndex, options) {
   const buttons = options.map((opt, i) => [
@@ -31,13 +26,30 @@ function questionKeyboard(testId, qIndex, options) {
 async function sendQuestion(ctx, testId, qIndex) {
   const test = tests[testId];
   const question = test.questions[qIndex];
+  const numberEmoji = NUMBER_EMOJIS[qIndex] || `${qIndex + 1}.`;
   const progress = `*Вопрос ${qIndex + 1} из ${test.questions.length}*`;
-  const text = `${progress}\n\n❓ ${question.text}`;
+  const text = `${progress}\n\n${numberEmoji} ${question.text}`;
   const extra = questionKeyboard(testId, qIndex, question.options);
   await ctx.editMessageText(text, extra).catch(async () => {
     // Если сообщение нельзя отредактировать (например, устарело) — отправим новое
     await ctx.reply(text, extra);
   });
+}
+
+// Стартовый экран теста: текст-интро + кнопка "НАЧАТЬ"
+async function sendTestIntro(ctx, testId, { edit } = { edit: false }) {
+  const test = tests[testId];
+  const introExtra = {
+    parse_mode: 'Markdown',
+    ...Markup.inlineKeyboard([[Markup.button.callback('НАЧАТЬ ➡️', `start_test:${testId}`)]])
+  };
+  if (edit) {
+    await ctx.editMessageText(test.intro, introExtra).catch(async () => {
+      await ctx.reply(test.intro, introExtra);
+    });
+  } else {
+    await ctx.reply(test.intro, introExtra);
+  }
 }
 
 async function finishTest(ctx, testId) {
@@ -65,8 +77,8 @@ async function finishTest(ctx, testId) {
   const resultKeyboard = {
     parse_mode: 'Markdown',
     ...Markup.inlineKeyboard([
-      [Markup.button.url(test.ctaButtonText, test.ctaUrl)],
-      [Markup.button.url(test.ctaContactButtonText, test.ctaContactUrl)]
+      [Markup.button.url(test.ctaContactButtonText, test.ctaContactUrl)],
+      [Markup.button.url(test.ctaButtonText, test.ctaUrl)]
     ])
   };
 
@@ -77,40 +89,30 @@ async function finishTest(ctx, testId) {
   sessions.delete(ctx.from.id);
 }
 
-function mainMenuExtra() {
-  return { parse_mode: 'Markdown', ...mainMenuKeyboard() };
+// Пока в системе один тест — бот сразу открывает его интро.
+// Когда появится второй тест, этот блок нужно будет заменить обратно
+// на показ меню выбора (см. функцию mainMenuKeyboard ниже).
+bot.start(async (ctx) => {
+  const firstTestId = Object.keys(tests)[0];
+  sessions.set(ctx.from.id, { testId: firstTestId, questionIndex: 0, points: [], answersText: [] });
+  await sendTestIntro(ctx, firstTestId, { edit: false });
+});
+
+function mainMenuKeyboard() {
+  const buttons = Object.values(tests).map(t => [
+    Markup.button.callback(t.menuButtonText, `menu:${t.id}`)
+  ]);
+  return { parse_mode: 'Markdown', ...Markup.inlineKeyboard(buttons) };
 }
 
-bot.start(async (ctx) => {
-  sessions.delete(ctx.from.id);
-  await ctx.reply(welcomeText, mainMenuExtra());
-});
-
-bot.action('back_to_menu', async (ctx) => {
-  await ctx.answerCbQuery();
-  sessions.delete(ctx.from.id);
-  await ctx.editMessageText(welcomeText, mainMenuExtra()).catch(async () => {
-    await ctx.reply(welcomeText, mainMenuExtra());
-  });
-});
-
-// Пользователь выбрал тест из меню
+// Пользователь выбрал тест из меню (задел на будущее, когда тестов станет больше)
 bot.action(/^menu:(.+)$/, async (ctx) => {
   const testId = ctx.match[1];
   const test = tests[testId];
   if (!test) return ctx.answerCbQuery('Тест не найден');
   await ctx.answerCbQuery();
-
   sessions.set(ctx.from.id, { testId, questionIndex: 0, points: [], answersText: [] });
-
-  const introExtra = {
-    parse_mode: 'Markdown',
-    ...Markup.inlineKeyboard([[Markup.button.callback('Начать ➡️', `start_test:${testId}`)]])
-  };
-
-  await ctx.editMessageText(test.intro, introExtra).catch(async () => {
-    await ctx.reply(test.intro, introExtra);
-  });
+  await sendTestIntro(ctx, testId, { edit: true });
 });
 
 bot.action(/^start_test:(.+)$/, async (ctx) => {
