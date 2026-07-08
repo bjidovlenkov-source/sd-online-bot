@@ -15,7 +15,7 @@ const BOOKING_URL = process.env.BOOKING_URL || 'https://the-focus.ru/cd_partners
 // Бот не может отправить сообщение от имени пользователя автоматически —
 // так устроен Telegram (защита от спама): пользователю нужно самому нажать "отправить".
 const CONTACT_USERNAME = 'ak_mind';
-const CONTACT_MESSAGE = 'Привет, хочу записаться на СД';
+const CONTACT_MESSAGE = 'Привет, хочу записаться на Совет директоров';
 const CONTACT_URL = `https://t.me/${CONTACT_USERNAME}?text=${encodeURIComponent(CONTACT_MESSAGE)}`;
 
 const tests = {
@@ -230,7 +230,7 @@ const tests = {
     ctaText: '', // текст перед кнопками результата (можно оставить пустым)
     ctaButtonText: 'Узнать подробнее',
     ctaUrl: BOOKING_URL,
-    ctaContactButtonText: 'Хочу записаться',
+    ctaContactButtonText: 'ХОЧУ ЗАПИСАТЬСЯ',
     ctaContactUrl: CONTACT_URL
   }
 
@@ -250,15 +250,6 @@ const tests = {
   // }
 };
 
-const welcomeText =
-  '💭 Если ловите себя на мыслях:\n\n' +
-  '«Я не понимаю, в чём вклад партнёра»\n' +
-  '«Мы договаривались совсем о другом»\n' +
-  '«Я устал тянуть бизнес один»\n' +
-  '«Любой разговор заканчивается спором»\n\n' +
-  '*Эта диагностика для вас*';
-
-// Считает результат теста по массиву баллов (по одному числу на каждый вопрос)
 function calculateResult(testId, points) {
   const test = tests[testId];
   const total = points.reduce((sum, p) => sum + p, 0);
@@ -269,4 +260,4 @@ function calculateResult(testId, points) {
   return { total, result };
 }
 
-module.exports = { tests, welcomeText, calculateResult };
+module.exports = { tests, calculateResult };
